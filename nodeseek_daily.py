@@ -13,11 +13,15 @@ import random
 import time
 import traceback
 import undetected_chromedriver as uc
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 
 ns_random = os.environ.get("NS_RANDOM","false")
 cookie = os.environ.get("NS_COOKIE") or os.environ.get("COOKIE")
 # 通过环境变量控制是否使用无头模式，默认为 True（无头模式）
 headless = os.environ.get("HEADLESS", "true").lower() == "true"
+
+randomInputStr = ["bd","绑定","帮顶"]
 
 def click_sign_icon(driver):
     """
@@ -40,6 +44,8 @@ def click_sign_icon(driver):
         
         # 尝试点击
         try:
+            
+            
             sign_icon.click()
             print("签到图标点击成功")
         except Exception as click_error:
@@ -151,12 +157,107 @@ def setup_driver_and_cookies():
         print(traceback.format_exc())
         return None
 
+# 评论功能已移除
+def nodeseek_add_chicken_leg(driver):
+    """仅执行加鸡腿功能"""
+    try:
+        print("正在访问交易区...")
+        target_url = 'https://www.nodeseek.com/categories/trade'
+        driver.get(target_url)
+        print("等待页面加载...")
+        
+        # 获取初始帖子列表
+        posts = WebDriverWait(driver, 30).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.post-list-item'))
+        )
+        print(f"成功获取到 {len(posts)} 个帖子")
+        
+        # 过滤掉置顶帖
+        valid_posts = [post for post in posts if not post.find_elements(By.CSS_SELECTOR, '.pined')]
+        selected_posts = random.sample(valid_posts, min(5, len(valid_posts)))
+        
+        # 存储已选择的帖子URL
+        selected_urls = []
+        for post in selected_posts:
+            try:
+                post_link = post.find_element(By.CSS_SELECTOR, '.post-title a')
+                selected_urls.append(post_link.get_attribute('href'))
+            except:
+                continue
+        
+        # 使用URL列表进行操作
+        for i, post_url in enumerate(selected_urls):
+            try:
+                print(f"正在处理第 {i+1} 个帖子")
+                driver.get(post_url)
+                
+                # 处理加鸡腿
+                click_chicken_leg(driver)
+                time.sleep(random.uniform(2,5))
+                
+            except Exception as e:
+                print(f"处理帖子时出错: {str(e)}")
+                continue
+                
+        print("NodeSeek加鸡腿任务完成")
+                
+    except Exception as e:
+        print(f"NodeSeek加鸡腿出错: {str(e)}")
+        print("详细错误信息:")
+        print(traceback.format_exc())
+
+def click_chicken_leg(driver):
+    try:
+        print("尝试点击加鸡腿按钮...")
+        chicken_btn = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.XPATH, '//div[@class="nsk-post"]//div[@title="加鸡腿"][1]'))
+        )
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", chicken_btn)
+        time.sleep(0.5)
+        chicken_btn.click()
+        print("加鸡腿按钮点击成功")
+        
+        # 等待确认对话框出现
+        WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, '.msc-confirm'))
+        )
+        
+        # 检查是否是7天前的帖子
+        try:
+            error_title = driver.find_element(By.XPATH, "//h3[contains(text(), '该评论创建于7天前')]")
+            if error_title:
+                print("该帖子超过7天，无法加鸡腿")
+                ok_btn = driver.find_element(By.CSS_SELECTOR, '.msc-confirm .msc-ok')
+                ok_btn.click()
+                return False
+        except:
+            ok_btn = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '.msc-confirm .msc-ok'))
+            )
+            ok_btn.click()
+            print("确认加鸡腿成功")
+            
+        # 等待确认对话框消失
+        WebDriverWait(driver, 5).until_not(
+            EC.presence_of_element_located((By.CSS_SELECTOR, '.msc-overlay'))
+        )
+        time.sleep(1)  # 额外等待以确保对话框完全消失
+        
+        return True
+        
+    except Exception as e:
+        print(f"加鸡腿操作失败: {str(e)}")
+        return False
+
 if __name__ == "__main__":
-    print("开始执行NodeSeek签到脚本...")
+    print("开始执行NodeSeek签到加鸡腿脚本...")
     driver = setup_driver_and_cookies()
     if not driver:
         print("浏览器初始化失败")
         exit(1)
+    nodeseek_add_chicken_leg(driver)
     click_sign_icon(driver)
     print("脚本执行完成")
-    driver.quit()
+    # while True:
+    #     time.sleep(1)
+
